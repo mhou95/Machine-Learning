@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>數位政府與治理｜GIS 市民通報互動地圖</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6f8;color:#203544;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif}
+header{background:#153245;color:white;padding:22px 5%}h1{font-size:24px;margin:0}header p{opacity:.84;margin:6px 0 0}
+main{max-width:1120px;margin:22px auto;padding:0 15px}
+.panel{background:white;border-radius:12px;overflow:hidden;box-shadow:0 3px 16px #15324514;margin-bottom:18px}
+.bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:14px 18px}
+.filters{display:flex;gap:16px;flex-wrap:wrap}label{cursor:pointer;font-weight:600;font-size:15px}input{margin-right:7px;accent-color:#295b71}
+button{cursor:pointer;border:1px solid #afc8d5;border-radius:6px;background:white;padding:8px 13px;color:#153245;font-weight:600}
+#map{height:540px;width:100%}.note{padding:15px 19px;color:#526875;font-size:13px}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px}section.info{padding:20px}h2{font-size:18px;margin:0 0 12px}p{margin:8px 0}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px solid #e2e8ec;text-align:left;padding:9px 6px}th{background:#edf2f5}
+.tag{width:11px;height:11px;display:inline-block;border-radius:50%;vertical-align:middle;margin-right:5px}
+@media(max-width:680px){.bottom{grid-template-columns:1fr}#map{height:470px}h1{font-size:20px}}
+</style>
+</head>
+<body><header><h1>GIS｜市民通報點位互動地圖</h1><p>數位政府與治理・期中考實作第 2 題・資料為模擬案件</p></header>
+<main><div class="panel">
+<div class="bar"><div class="filters" id="filters"></div><div><strong id="count">顯示 6／6 點</strong>　<button id="reset">重設地圖</button></div></div>
+<div id="map"></div>
+<div class="note">點擊標記可查看編號與類型；可拖曳、縮放、勾選類別篩選。底圖：© OpenStreetMap contributors。</div>
+</div>
+<div class="bottom"><section class="panel info"><h2>通報點位資料</h2><table><thead><tr><th>編號</th><th>類型</th><th>緯度</th><th>經度</th></tr></thead><tbody id="rows"></tbody></table></section>
+<section class="panel info"><h2>空間分布與治理解讀</h2><p><b>空間觀察：</b>6 個點分布在北緯 25.0390–25.0550、東經 121.5150–121.5360，三種通報類型各有 2 筆。</p><p><b>治理應用：</b>依類型篩選後，可安排巡查及維修順序。</p><p><b>資料限制：</b>全部為試卷模擬座標，僅 6 筆，不能推論真實案件熱區。</p><p><b>驗證：</b>已按考卷原始資料逐筆核對 01–06 編號、類型和經緯度。網站可點擊標記、拖曳縮放、分類篩選。</p><p class="note">資料來源：《115 學年度數位政府與治理期中考試卷》第 5 頁。</p></section></div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+ const points=[
+ {id:"01",type:"道路破損",lat:25.0478,lon:121.5170},
+ {id:"02",type:"路燈故障",lat:25.0510,lon:121.5220},
+ {id:"03",type:"交通號誌",lat:25.0430,lon:121.5250},
+ {id:"04",type:"道路破損",lat:25.0550,lon:121.5290},
+ {id:"05",type:"路燈故障",lat:25.0390,lon:121.5150},
+ {id:"06",type:"交通號誌",lat:25.0460,lon:121.5360}
+ ];
+ const colors={"道路破損":"#d25d50","路燈故障":"#dc9b28","交通號誌":"#2a9290"};
+ const types=Object.keys(colors);
+ const selected=new Set(types);
+ const map=L.map("map",{zoomControl:true});
+ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"}).addTo(map);
+ const markers={};
+ const groups={};
+ types.forEach(type=>{groups[type]=L.layerGroup().addTo(map)});
+ points.forEach(p=>{
+    const marker=L.circleMarker([p.lat,p.lon],{radius:11,color:"white",weight:3,fillColor:colors[p.type],fillOpacity:1});
+    marker.bindPopup("<b>編號 "+p.id+"｜"+p.type+"</b><br>緯度："+p.lat.toFixed(4)+"<br>經度："+p.lon.toFixed(4));
+    markers[p.id]=marker;marker.addTo(groups[p.type]);
+ });
+ const fullBounds=L.latLngBounds(points.map(p=>[p.lat,p.lon]));
+ function reset(){map.fitBounds(fullBounds,{padding:[50,50]});}
+ reset();
+ function update(){
+   types.forEach(t=>{if(selected.has(t))map.addLayer(groups[t]);else map.removeLayer(groups[t])});
+   document.getElementById("count").textContent="顯示 "+points.filter(p=>selected.has(p.type)).length+"／6 點";
+   document.querySelectorAll("tr[data-type]").forEach(tr=>tr.style.display=selected.has(tr.dataset.type)?"":"none");
+ }
+ types.forEach(t=>{
+   const label=document.createElement("label");
+   const check=document.createElement("input");check.type="checkbox";check.checked=true;
+   check.addEventListener("change",()=>{if(check.checked)selected.add(t);else selected.delete(t);update()});
+   const dot=document.createElement("span");dot.className="tag";dot.style.background=colors[t];
+   label.append(check,dot,document.createTextNode(t));
+   document.getElementById("filters").appendChild(label);
+ });
+ points.forEach(p=>{
+   const tr=document.createElement("tr");tr.dataset.type=p.type;
+   tr.innerHTML="<td>"+p.id+"</td><td>"+p.type+"</td><td>"+p.lat.toFixed(4)+"</td><td>"+p.lon.toFixed(4)+"</td>";
+   tr.style.cursor="pointer";
+   tr.addEventListener("click",()=>{map.setView([p.lat,p.lon],15);markers[p.id].openPopup()});
+   document.getElementById("rows").appendChild(tr);
+ });
+ document.getElementById("reset").addEventListener("click",reset);
+})();
+</script></body></html>
